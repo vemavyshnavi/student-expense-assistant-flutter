@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/expense.dart';
+import '../services/firestore_service.dart';
 import 'add_expense_screen.dart';
 import 'deadlines_screen.dart';
 
@@ -11,7 +13,20 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final List<Expense> expenses = [];
+  final FirestoreService _firestoreService = FirestoreService();
+  late final String currentMonthYear;
+  late final String uid;
+
+  @override
+  void initState() {
+    super.initState();
+
+    uid = FirebaseAuth.instance.currentUser!.uid;
+
+    final now = DateTime.now();
+    final month = now.month.toString().padLeft(2, '0');
+    currentMonthYear = '${now.year}-$month';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,83 +34,97 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(title: const Text('Dashboard')),
       body: Padding(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('This Month', style: TextStyle(fontSize: 16)),
-            const SizedBox(height: 8),
+        child: StreamBuilder<List<Expense>>(
+          stream: _firestoreService.getExpensesOrdered(uid),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-            Text(
-              '₹ ${expenses.fold(0.0, (sum, e) => sum + e.amount)} spent',
-              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-            ),
+            final allExpenses = snapshot.data ?? [];
 
-            const SizedBox(height: 20),
+            final expenses = allExpenses
+                .where((e) => e.monthYear == currentMonthYear)
+                .toList();
 
-            Expanded(
-              child: expenses.isEmpty
-                  ? const Center(child: Text('No expenses yet'))
-                  : ListView.builder(
-                      itemCount: expenses.length,
-                      itemBuilder: (context, index) {
-                        final expense = expenses[index];
-                        return Card(
-                          child: ListTile(
-                            title: Text(
-                              '₹ ${expense.amount} - ${expense.category}',
-                            ),
-                            subtitle: Text('Paid via ${expense.paymentMethod}'),
-                          ),
-                        );
-                      },
-                    ),
-            ),
+            final totalSpent = expenses.fold(0.0, (sum, e) => sum + e.amount);
 
-            const SizedBox(height: 12),
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('This Month', style: TextStyle(fontSize: 16)),
+                const SizedBox(height: 8),
 
-            // 🔔 VIEW DEADLINES BUTTON
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: OutlinedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const DeadlinesScreen(),
-                    ),
-                  );
-                },
-                child: const Text('View Deadlines'),
-              ),
-            ),
+                Text(
+                  '₹ $totalSpent spent',
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
 
-            const SizedBox(height: 12),
+                const SizedBox(height: 20),
 
-            // ➕ ADD EXPENSE BUTTON
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton.icon(
-                onPressed: () async {
-                  final newExpense = await Navigator.push<Expense>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const AddExpenseScreen(),
-                    ),
-                  );
+                Expanded(
+                  child: expenses.isEmpty
+                      ? const Center(child: Text('No expenses this month'))
+                      : ListView.builder(
+                          itemCount: expenses.length,
+                          itemBuilder: (context, index) {
+                            final expense = expenses[index];
+                            return Card(
+                              child: ListTile(
+                                title: Text(
+                                  '₹ ${expense.amount} - ${expense.category}',
+                                ),
+                                subtitle: Text(
+                                  expense.date.toLocal().toString(),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
 
-                  if (newExpense != null) {
-                    setState(() {
-                      expenses.add(newExpense);
-                    });
-                  }
-                },
-                icon: const Icon(Icons.add),
-                label: const Text('Add Expense'),
-              ),
-            ),
-          ],
+                const SizedBox(height: 12),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const DeadlinesScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text('View Deadlines'),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AddExpenseScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Expense'),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

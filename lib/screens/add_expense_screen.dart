@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/expense.dart';
+import '../services/firestore_service.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   const AddExpenseScreen({super.key});
@@ -10,9 +12,9 @@ class AddExpenseScreen extends StatefulWidget {
 
 class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final TextEditingController amountController = TextEditingController();
+  final FirestoreService _firestoreService = FirestoreService();
 
   String selectedCategory = 'Food';
-  String selectedPayment = 'Cash';
 
   final List<String> categories = [
     'Food',
@@ -21,8 +23,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     'Snacks',
     'Others',
   ];
-
-  final List<String> paymentMethods = ['Cash', 'UPI', 'Card', 'Parent Paid'];
 
   @override
   Widget build(BuildContext context) {
@@ -69,46 +69,40 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               decoration: const InputDecoration(border: OutlineInputBorder()),
             ),
 
-            const SizedBox(height: 20),
-
-            const Text(
-              'Payment Method',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-
-            DropdownButtonFormField<String>(
-              initialValue: selectedPayment,
-              items: paymentMethods
-                  .map(
-                    (method) =>
-                        DropdownMenuItem(value: method, child: Text(method)),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                setState(() {
-                  selectedPayment = value!;
-                });
-              },
-              decoration: const InputDecoration(border: OutlineInputBorder()),
-            ),
-
             const Spacer(),
 
             SizedBox(
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
+                  final amount = double.tryParse(amountController.text.trim());
+
+                  if (amount == null || amount <= 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please enter a valid amount'),
+                      ),
+                    );
+                    return;
+                  }
+
+                  final now = DateTime.now();
+
                   final expense = Expense(
-                    amount: double.tryParse(amountController.text) ?? 0,
+                    title: selectedCategory,
+                    amount: amount,
                     category: selectedCategory,
-                    paymentMethod: selectedPayment,
+                    date: now,
+                    monthYear: Expense.generateMonthYear(now),
                   );
 
-                  Navigator.pop(context, expense);
-                },
+                  final uid = FirebaseAuth.instance.currentUser!.uid;
 
+                  await _firestoreService.addExpense(uid, expense);
+
+                  Navigator.pop(context);
+                },
                 child: const Text('Save Expense'),
               ),
             ),
