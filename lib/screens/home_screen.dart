@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/expense.dart';
 import 'add_expense_screen.dart';
+import 'deadlines_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,7 +27,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
             Text(
               '₹ ${expenses.fold(0.0, (sum, e) => sum + e.amount)} spent',
-
               style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
 
@@ -51,6 +51,28 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
             ),
 
+            const SizedBox(height: 12),
+
+            // 🔔 VIEW DEADLINES BUTTON
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const DeadlinesScreen(),
+                    ),
+                  );
+                },
+                child: const Text('View Deadlines'),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // ➕ ADD EXPENSE BUTTON
             SizedBox(
               width: double.infinity,
               height: 48,
